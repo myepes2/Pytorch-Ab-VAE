@@ -1,0 +1,48 @@
+ssh login.marcc.jhu.edu -l myepes2@jhu.edu
+# git clone -b myt-VAE git@github.com:Graylab/DeepH3-dev.git
+git clone -b myt-VAE https://github.com/Graylab/DeepH3-dev.git
+scp scp_tst myepes2@login.rockfish.jhu.edu:/home/myepes2/data_jgray21/myepes2/DeepH3-dev/data
+
+sudo apt install -y python3-pip
+
+### rockfish
+ml python/3.8.6 py-pip py-setuptools
+source dH3/bin/activate
+
+pip3 install -r requirements.txt
+
+pip install torch==1.7.1 torchvision==0.8.2 yapf seaborn
+
+scp sabdab_summary.tsv myepes2@login.rockfish.jhu.edu:/home/myepes2/data_jgray21/myepes2/DeepH3-dev/data/info
+
+
+ssh login.rockfish.jhu.edu -l myepes2
+interact -p gpu -t 240
+cd data_jgray21/myepes2/
+
+source dH3/bin/activate
+export PYTHONPATH="/home/myepes2/data_jgray21/myepes2/DeepH3-dev"
+python DeepH3-dev/deeph3/models/H3ResNet/train.py 
+
+export BASENAME=/home/myepes2/data_jgray21/myepes2/DeepH3-dev
+export SCRIPT=${BASENAME}/deeph3/models/H3ResNet/train.py 
+export MODELS_DIR=${BASENAME}/deeph3/models/runs/test_run3
+export H5_FILE=${BASENAME}/data/abGeometry.h5
+
+mkdir -p $MODELS_DIR
+
+python $SCRIPT --h5_file $H5_FILE --epochs 55 --batch_size 4 --output_dir $MODELS_DIR --save_every 1 
+python $SCRIPT --h5_file $H5_FILE --epochs 50 --batch_size 4 --output_dir $MODELS_DIR --save_every 1 
+
+python deeph3/models/H3ResNet/train.py --h5_file data/abGeometry.h5 --epochs 55 --batch_size 4 --output_dir deeph3/models/runs/test_run --save_every 1 
+
+python deeph3/models/H3ResNet/train.py --h5_file data/abGeometry.h5 --epochs 55 --batch_size 4 --output_dir deeph3/models/runs/test_run --save_every 1 
+
+/home-3/myepes2@jhu.edu/data/jruffol1/antibody_database_redundant
+/home/myepes/DeepH3-dev/data
+
+4/30/21
+ssh login.marcc.jhu.edu -l myepes2@jhu.edu
+scp get_pdbs.sh myepes2@jhu.edu@login.marcc.jhu.edu:/home-3/myepes2@jhu.edu/data/jruffol1/antibody_database_redundant
+
+scp myepes2@jhu.edu@login.marcc.jhu.edu:/home-3/myepes2@jhu.edu/data/jruffol1/antibody_database_redundant

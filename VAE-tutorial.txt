@@ -1,0 +1,34 @@
+VAE-tutorial
+ssh login.marcc.jhu.edu -l myepes2@jhu.edu
+cd /home-3/myepes2@jhu.edu/work/myepes2
+
+cd /home-3/myepes2@jhu.edu/data/myepes2
+
+git clone https://github.com/Jackson-Kang/Pytorch-VAE-tutorial.git
+
+vim reqs.yaml 
+
+conda env update --file reqs.yaml -p /data/jgray21/myepes2/vae
+
+conda activate /data/jgray21/myepes2/vae
+
+sbatch -c 12 -t 2:0:0 -p gpuk80 --gres=gpu:2 jupyter_notebook_start
+
+Submitted batch job 49692624
+
+scancel 49692624
+
+ssh -N -L 8483:gpu036:8483 myepes2@jhu.edu@login.marcc.jhu.edu
+
+sbatch -p debug -c 6 --gres=gpu:1 -t 2:0:0 jupyter_marcc notebook
+
+Submitted batch job 49703099
+
+module restore
+module load python/3.7-anaconda-2019.03
+conda create -p /data/jgray21/myepes2/vae3
+conda activate /data/jgray21/myepes2/vae3
+conda install pip nb_conda nb_conda_kernels tqdm numpy matplotlib jupyter pytorch=1.7
+
+ssh -N -L 8248:gpu001:8248 myepes2@jhu.edu@login.marcc.jhu.edu
+http://localhost:8248/?token=22fc356d2681aa164c601a057857720a049498c837bcf57a
