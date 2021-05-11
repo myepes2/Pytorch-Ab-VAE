@@ -28,7 +28,11 @@ module restore
 module load python/3.7-anaconda-2019.03
 conda create -p /data/jgray21/myepes2/vae3
 conda activate /data/jgray21/myepes2/vae3
-conda install pip nb_conda nb_conda_kernels tqdm numpy matplotlib jupyter pytorch=1.7
+
+conda install pip nb_conda nb_conda_kernels ipykernel
+conda install tqdm numpy matplotlib jupyter
+conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
+conda install pytorch-lightning -c conda-forge
 
 ssh -N -L 8248:gpu001:8248 myepes2@jhu.edu@login.marcc.jhu.edu
 http://localhost:8248/?token=22fc356d2681aa164c601a057857720a049498c837bcf57a
