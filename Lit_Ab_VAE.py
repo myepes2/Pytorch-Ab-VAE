@@ -387,7 +387,7 @@ if __name__ == '__main__':
             if batch_idx == 0:
                 break
 
-print('check values!')
+    print('check values!')
 
 
 
