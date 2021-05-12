@@ -387,7 +387,11 @@ if __name__ == '__main__':
             if batch_idx == 0:
                 break
 
+<<<<<<< HEAD
     print('check values!')
+=======
+print('check values!')
+>>>>>>> 246a3420b68bf3d6061cf97568d9633ff8cf0fcb
 
 
 

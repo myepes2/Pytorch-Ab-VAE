@@ -110,6 +110,7 @@ img_datasets/cifar-10-batches-py/data_batch_4
 img_datasets/cifar-10-batches-py/data_batch_5
 img_datasets/cifar-10-batches-py/readme.html
 img_datasets/cifar-10-batches-py/test_batch
+<<<<<<< HEAD
 img_output/tensorboard/default/version_0/events.out.tfevents.1620775180.GOOB-3000.614.0
 img_output/tensorboard/default/version_0/hparams.yaml
 img_output/tensorboard/default/version_1/events.out.tfevents.1620775234.GOOB-3000.673.0
@@ -209,3 +210,5 @@ img_output/tensorboard/default/version_31/checkpoints/epoch=6-step=2736.ckpt
 __pycache__/display.cpython-37.pyc
 __pycache__/Lit_Ab_VAE.cpython-37.pyc
 .vscode/settings.json
+=======
+>>>>>>> 246a3420b68bf3d6061cf97568d9633ff8cf0fcb
