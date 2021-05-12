@@ -3,12 +3,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, dataset, random_split
-from torchvision.utils import save_image, make_grid
+#from torchvision.utils import save_image, make_grid
 import pytorch_lightning as pl
+import numpy as np
+#import matplotlib.pyplot as plt
+from glob import glob
+
+
+from torchvision.datasets import CIFAR10
+import torchvision.transforms as transforms
+from torch.utils.data import DataLoader
+
+from display import draw_sample_image
 
 class F_ResBlock(nn.Module):
     def __init__(self, in_channels, kernel_size=5) -> None:
-        super().__init__()
+        super(F_ResBlock, self).__init__()
 
         self.kernel_size = kernel_size
 
@@ -53,7 +63,7 @@ class F_ResBlock(nn.Module):
 
 class R_ResBlock(torch.nn.Module):
     def __init__(self, in_channels, kernel_size=5) -> None:
-        super().__init__()
+        super(R_ResBlock, self).__init__()
 
         self.kernel_size = kernel_size
 
@@ -66,7 +76,7 @@ class R_ResBlock(torch.nn.Module):
         self.padding = (kernel_size - 1) // 2
         
         #1 if odd, 0 if even
-        self.output_padding = (lambda x : (x % 2))(kernel_size)
+        self.output_padding = kernel_size % 2
 
         self.deconv1 = torch.nn.ConvTranspose2d(
             in_channels,
@@ -74,7 +84,8 @@ class R_ResBlock(torch.nn.Module):
             kernel_size=self.kernel_size,
             stride=2,
             padding=self.padding,
-            output_padding = self.output_padding
+            output_padding = self.output_padding,
+            bias=False,
         )
 
 
@@ -84,6 +95,7 @@ class R_ResBlock(torch.nn.Module):
             kernel_size=self.kernel_size,
             stride=1,
             padding=self.padding,
+            bias=False,
         )
 
         self.deconv_skip = torch.nn.ConvTranspose2d(
@@ -121,6 +133,7 @@ class Ab_Encoder(nn.Module):
 
         #will add multi-layer functionality as it becomes necessary
         self.layer = self._make_layer(self.res_channels, self.num_blocks)
+        self.flatten = nn.Flatten()
 
     def _make_layer(self, res_channels = 4, num_blocks=2, kernel_size=5):
         """Makes a layer made up of blocks"""
@@ -141,7 +154,7 @@ class Ab_Encoder(nn.Module):
         out = self.layer(out)
         #for layer in self.layers:
         #    out = layer(out)
-        out = torch.flatten(out, 1)
+        out = self.flatten(out)
         return out
 
 class Ab_Decoder(nn.Module):
@@ -163,8 +176,8 @@ class Ab_Decoder(nn.Module):
         self.out_channels = out_channels
 
         #self.bn1 = nn.BatchNorm2d(self.img_channels)
-        #self.activation = F.relu
-        self.activation = F.sigmoid
+        self.activation = F.relu
+        #self.activation = F.sigmoid
 
         self.linear = nn.Linear(latent_dim, self.hidden_dim)
         self.unflatten = nn.Unflatten(1, hidden_shape)
@@ -173,7 +186,7 @@ class Ab_Decoder(nn.Module):
         #will add multi-layer functionality as it becomes necessary
         self.layer = self._make_layer(self.c, self.num_blocks)
 
-        self.conv = nn.Conv2d(self.res_channels, self.out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv = nn.Conv2d(self.res_channels, self.out_channels, kernel_size=3, stride=1, padding=1)
 
     def _make_layer(self, res_channels = 4, num_blocks=2, kernel_size=5):
         blocks = []
@@ -188,7 +201,7 @@ class Ab_Decoder(nn.Module):
         return nn.Sequential(*blocks)
     
     def forward(self, x):
-        out = self.linear(x)
+        out = self.activation(self.linear(x))
         out = self.unflatten(out)
         out = self.layer(out)
         out = self.conv(out)
@@ -203,8 +216,8 @@ class Ab_VAE(pl.LightningModule):
         input_shape : tuple = None,
         latent_dim: int = 128,
         num_blocks: int = 2,
-        lr: float = 1e-4
-        #kl_coeff: float = 0.1,
+        lr: float = 1e-4,
+        kl_coeff: float = 0.1,
     ):
 
         super(Ab_VAE, self).__init__()
@@ -212,6 +225,7 @@ class Ab_VAE(pl.LightningModule):
         self.save_hyperparameters()
 
         self.lr = lr
+        self.kl_coeff = kl_coeff
         self.latent_dim = latent_dim
         self.num_blocks = num_blocks
         self.c, self.h, self.w = input_shape
@@ -264,7 +278,7 @@ class Ab_VAE(pl.LightningModule):
 
         kl = log_qz - log_pz
         kl = kl.mean()
-        #kl *= self.kl_coeff
+        kl *= self.kl_coeff
 
         loss = kl + recon_loss
 
@@ -289,50 +303,94 @@ class Ab_VAE(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.lr)  
 
 if __name__ == '__main__':    
+    
+    ##Hyperparamters and directories
     input_shape = (3, 32, 32)
-    x = torch.ones(input_shape).unsqueeze(0)
-    model = Ab_VAE(input_shape)
+    batch_size = 128
 
-    y = model(x)
-    print('done')
+    dataset_path = './img_datasets/'
+    output_path = './img_output/'
+    v_num = 24
+    model_path = '/home/myepes/Pytorch-Ab-VAE/img_output/tensorboard/default/version_{}/'.format(v_num)
+    checkpoint_path = model_path + 'checkpoints/'
+    image_path = model_path + 'images/'
 
-    dataset_path = './img_datasets'
-    output_path = './img_output'
+    trainer_logger = pl.loggers.TensorBoardLogger(os.path.join(output_path, "tensorboard"))
 
-    from torchvision.datasets import CIFAR10
-    import torchvision.transforms as transforms
-    from torch.utils.data import DataLoader
-
+    ##Prepare Dataset
     mnist_transform = transforms.Compose([transforms.ToTensor(),])
 
-    kwargs = {'num_workers': 1, 'pin_memory': True} 
+    kwargs = {'num_workers': 16, 'pin_memory': True} 
 
     train_dataset = CIFAR10(dataset_path, transform=mnist_transform, train=True, download=True)
     test_dataset  = CIFAR10(dataset_path, transform=mnist_transform, train=False, download=True)
 
-    train_loader = DataLoader(dataset=train_dataset, batch_size=128, shuffle=True, **kwargs)
-    test_loader  = DataLoader(dataset=test_dataset,  batch_size=128, shuffle=False,  **kwargs)
+    train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size , shuffle=True, **kwargs)
+    test_loader  = DataLoader(dataset=test_dataset,  batch_size=batch_size , shuffle=False,  **kwargs)
 
-    trainer_logger = pl.loggers.TensorBoardLogger(os.path.join(output_path, "tensorboard"))
+    ##Define Model
+    model = Ab_VAE(input_shape)
 
-    #bat = train_loader.dataset.__getitem__(0)[0].unsqueeze(0)
-    trainer = pl.Trainer(
-        #args,
-        gpus=0,
-        auto_select_gpus=False,
-        min_epochs=5,
-        max_epochs=50,
-        #callbacks=trainer_callbacks,
-        default_root_dir=output_path,
-        logger=trainer_logger,
-        #resume_from_checkpoint=checkpoint_file)
-    )
+    checkpoint_files = list(glob(os.path.join(checkpoint_path, "*.ckpt")))
+    if len(checkpoint_files) > 0:
+        checkpoint_file = max(checkpoint_files, key=os.path.getctime)
 
+        #_id = checkpoint_file.split('=')[1][0]
+        #print(c_id)
+
+        trainer_gpus, auto_select_gpus = (1, True) if torch.cuda.is_available() else (0, False)
+
+        trainer = pl.Trainer(
+            #args,
+            gpus=trainer_gpus,
+            auto_select_gpus=auto_select_gpus,
+            min_epochs=1,
+            max_epochs=7,
+            #callbacks=trainer_callbacks,
+            default_root_dir=checkpoint_path,
+            logger=trainer_logger,
+            resume_from_checkpoint=checkpoint_file
+            )
+        print('Trainer using existing model:\n{}'.format(checkpoint_file))
+
+    else:
+        #c_id = '0'
+        trainer = pl.Trainer(
+            # args,
+            gpus=0,
+            auto_select_gpus=False,
+            min_epochs=1,
+            max_epochs=7,
+            #callbacks=trainer_callbacks,
+            default_root_dir=checkpoint_path,
+            logger=trainer_logger
+        )    
+        print('Trainer using new model')
+
+
+    ##Train Model
     trainer.fit(model, train_loader, test_loader)
 
-    #loss, logs = model.step(bat, 0)
-    #print(loss)
-    #print(*logs)`
+    current_epoch = trainer.current_epoch
+
+    ##Show sample images
+    model.eval()
+    with torch.no_grad():
+
+        for batch_idx, (x, y) in enumerate(test_loader):
+
+            x_hat = model(x)
+            loss, logs = model.step((x,y), batch_idx)
+            print(loss)
+            draw_sample_image(x[:batch_size//2], "e{}".format(current_epoch),  "G", image_path, False)
+            draw_sample_image(x_hat[:batch_size//2], "e{}".format(current_epoch), "R", image_path, False)
+            if batch_idx == 0:
+                break
+
+print('check values!')
+
+
+
 
 
 
