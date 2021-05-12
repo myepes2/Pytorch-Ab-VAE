@@ -386,12 +386,8 @@ if __name__ == '__main__':
             draw_sample_image(x_hat[:batch_size//2], "e{}".format(current_epoch), "R", image_path, False)
             if batch_idx == 0:
                 break
-
-<<<<<<< HEAD
-    print('check values!')
-=======
-print('check values!')
->>>>>>> 246a3420b68bf3d6061cf97568d9633ff8cf0fcb
+    
+    print('end of main')
 
 
 
